@@ -1,0 +1,31 @@
+{
+  "name": "whatsapp-nonstop-sender",
+  "version": "1.0.0",
+  "description": "WhatsApp Bulk Message Sender Bot with Web Dashboard, File Upload, Group UID Support & Non-Stop Sender",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "bulk",
+    "sender",
+    "baileys",
+    "group",
+    "nonstop"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^6.7.9",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "pino": "^9.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
