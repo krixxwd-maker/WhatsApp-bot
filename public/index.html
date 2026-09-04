@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WhatsApp Non-Stop Sender</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --green: #25D366;
+    --dark: #075E54;
+    --bg: #f0f2f5;
+    --card: #fff;
+    --text: #222;
+    --muted: #667781;
+    --red: #d9534f;
+    --blue: #1c5fd6;
+    --orange: #f0ad4e;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text); padding:20px 16px; display:flex; justify-content:center; }
+  .wrap { width:100%; max-width:1200px; }
+  h1 { font-size:22px; color:var(--dark); margin-bottom:20px; }
+  h2 { font-size:15px; margin:0 0 12px; color:var(--dark); }
+  .card { background:var(--card); border-radius:12px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,.08); margin-bottom:16px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media(max-width:768px){ .grid{ grid-template-columns:1fr; } }
+  .status-row { display:flex; align-items:center; gap:8px; }
+  .dot { width:10px; height:10px; border-radius:50%; background:#ccc; }
+  .dot.connected { background:var(--green); }
+  .dot.waiting { background:var(--orange); }
+  .dot.error { background:var(--red); }
+  .pairing-code { text-align:center; font-size:26px; font-weight:700; letter-spacing:4px; color:var(--dark); background:#e9f7ef; border-radius:8px; padding:14px; margin:10px 0; }
+  label { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; }
+  textarea { width:100%; min-height:60px; padding:8px; border:1px solid #d1d7db; border-radius:8px; font-size:12px; font-family:monospace; margin-bottom:8px; }
+  input[type=text], input[type=number], select { width:100%; padding:8px; border:1px solid #d1d7db; border-radius:8px; font-size:13px; margin-bottom:8px; }
+  button { padding:8px 12px; background:var(--green); color:#fff; border:none; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; margin:4px 4px 4px 0; }
+  button.secondary { background:var(--muted); }
+  button.danger { background:var(--red); }
+  button.small { padding:5px 8px; font-size:11px; }
+  button.big { width:100%; padding:14px; font-size:16px; margin:6px 0; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .file-upload-label { display:inline-block; background:#eef; color:var(--blue); padding:6px 10px; border-radius:6px; cursor:pointer; font-size:11px; margin-bottom:8px; }
+  .file-upload-label input { display:none; }
+  .file-section { border:1px solid #eee; border-radius:8px; padding:12px; margin-bottom:12px; background:#fafafa; }
+  .msg { font-size:11px; margin-top:4px; }
+  .msg.ok { color:#1e7e34; }
+  .msg.err { color:var(--red); }
+  .hint { font-size:11px; color:var(--muted); line-height:1.5; }
+  .stats-box { background:#f0f9f4; border-radius:8px; padding:12px; margin-top:10px; text-align:center; }
+  .stats-box .num { font-size:24px; font-weight:700; color:var(--dark); }
+  .stats-box .lbl { font-size:11px; color:var(--muted); }
+  .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+  .log-entry { padding:6px 0; border-bottom:1px solid #eee; }
+  .log-entry:last-child { border-bottom:none; }
+  .log-badge { display:inline-block; font-size:10px; padding:2px 8px; border-radius:10px; margin-right:6px; font-weight:600; }
+  .log-badge.sent { background:#e9f7ef; color:#1e7e34; }
+  .log-badge.received { background:#eaf2ff; color:var(--blue); }
+  .log-badge.failed { background:#fdecea; color:var(--red); }
+  .log-meta { color:var(--muted); font-size:10px; margin-top:2px; }
+  .group-item { display:flex; justify-content:space-between; align-items:center; border:1px solid #eee; padding:8px; border-radius:8px; margin-bottom:6px; background:#fafafa; }
+  .group-item .g-name { font-size:12px; font-weight:600; }
+  .group-item .g-id { font-size:10px; color:var(--muted); word-break:break-all; }
+  #logList { max-height:300px; overflow-y:auto; margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🤖 WhatsApp Non-Stop Sender</h1>
+
+  <div class="card">
+    <div class="status-row">
+      <div class="dot" id="statusDot"></div>
+      <strong id="statusText">Loading...</strong>
+      <button class="small danger" id="resetBtn" onclick="resetBot()" style="display:none;margin-left:auto;">Reset & Re-Pair</button>
+    </div>
+    <div class="hint" id="statusHint"></div>
+    <div id="pairSection" style="display:none; margin-top:8px;">
+      <input id="phone" type="text" placeholder="Apna WhatsApp number (country code, bina +)">
+      <button id="pairBtn" onclick="requestPairing()">Generate Pairing Code</button>
+      <div id="pairResult"></div>
+    </div>
+    <div class="hint" id="serverStats" style="margin-top:6px;"></div>
+  </div>
+
+  <div class="grid">
+
+    <div class="card">
+      <h2>📂 Files (Upload / Edit)</h2>
+
+      <div class="file-section">
+        <label>📝 Messages (messages.txt) — har line ek msg</label>
+        <textarea id="messagesArea" rows="5"></textarea>
+        <label class="file-upload-label">📤 Upload Messages File<input type="file" id="messagesFile" accept=".txt" onchange="uploadFile('messages', this, 'uploadMsg')"></label>
+        <button onclick="saveFile('messages', 'messagesArea', 'uploadMsg')">💾 Save</button>
+        <button class="secondary" onclick="clearFile('messages', 'messagesArea', 'uploadMsg')">🗑 Clear</button>
+        <div id="uploadMsg" class="msg"></div>
+      </div>
+
+      <div class="file-section">
+        <label>📇 Numbers (numbers.txt) — har line ek number</label>
+        <textarea id="numbersArea" rows="4"></textarea>
+        <label class="file-upload-label">📤 Upload Numbers File<input type="file" id="numbersFile" accept=".txt" onchange="uploadFile('numbers', this, 'uploadNum')"></label>
+        <button onclick="saveFile('numbers', 'numbersArea', 'uploadNum')">💾 Save</button>
+        <button class="secondary" onclick="clearFile('numbers', 'numbersArea', 'uploadNum')">🗑 Clear</button>
+        <div id="uploadNum" class="msg"></div>
+      </div>
+
+      <div class="file-section">
+        <label>👥 Group UIDs (groups.txt) — har line ek group UID</label>
+        <textarea id="groupsArea" rows="4"></textarea>
+        <label class="file-upload-label">📤 Upload Groups File<input type="file" id="groupsFile" accept=".txt" onchange="uploadFile('groups', this, 'uploadGrp')"></label>
+        <button onclick="saveFile('groups', 'groupsArea', 'uploadGrp')">💾 Save</button>
+        <button class="secondary" onclick="clearFile('groups', 'groupsArea', 'uploadGrp')">🗑 Clear</button>
+        <div id="uploadGrp" class="msg"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>🚀 Non-Stop Sender</h2>
+        <label>Target Mode</label>
+        <select id="sendMode">
+          <option value="all">Sab (Groups + Numbers)</option>
+          <option value="groups">Sirf Groups</option>
+          <option value="numbers">Sirf Numbers</option>
+        </select>
+        <label>Har message ke beech delay (seconds)</label>
+        <input id="delaySec" type="number" min="0" max="60" value="1">
+        <button class="big" id="startBtn" onclick="startSender()">▶️ START NON-STOP</button>
+        <button class="big danger" id="stopBtn" onclick="stopSender()" style="display:none;">⏹️ STOP</button>
+        <div class="stats-box" id="senderStats">
+          <div class="hint">Sender abhi off hai.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>👥 Groups (Bot is in)</h2>
+        <button class="secondary small" onclick="loadAvailableGroups()">🔄 Refresh Groups</button>
+        <div id="availableGroups" style="margin-top:10px;">
+          <div class="hint">Refresh dabao — bot jitne groups mein hai wo dikhenge, "➕ Add" se groups.txt mein add ho jayega.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card">
+    <h2>📜 Live Logs</h2>
+    <div id="logList"><div class="hint">Loading...</div></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+function setMsg(id, type, text) { $(id).innerHTML = `<div class="msg ${type}">${text}</div>`; }
+
+// ---------- Status ----------
+async function refreshStatus() {
+  try {
+    const res = await fetch('/api/status');
+    const d = await res.json();
+    const dot = $('statusDot'), txt = $('statusText'), hint = $('statusHint');
+    const pair = $('pairSection'), resetBtn = $('resetBtn');
+    dot.className = 'dot'; resetBtn.style.display = 'none';
+
+    if (d.status === 'connected') {
+      dot.classList.add('connected'); txt.textContent = 'Connected ✅';
+      hint.textContent = 'Bot live hai. Non-stop sender start kar sakte ho!';
+      pair.style.display = 'none';
+    } else if (d.status === 'disconnected') {
+      dot.classList.add('error'); txt.textContent = 'Disconnected ⚠️';
+      hint.textContent = d.lastError || 'Reset & Re-pair karo.';
+      pair.style.display = 'block'; resetBtn.style.display = 'inline-block';
+    } else if (d.status === 'reconnecting') {
+      dot.classList.add('waiting'); txt.textContent = 'Reconnecting... 🔄';
+      hint.textContent = 'Auto reconnect ho raha hai.';
+      pair.style.display = 'none';
+    } else {
+      dot.classList.add('waiting');
+      txt.textContent = d.status === 'pairing_requested' ? 'Code enter karo phone par...' : 'Pairing needed';
+      hint.textContent = 'Number daalo aur pairing code lo.';
+      pair.style.display = 'block';
+    }
+
+    $('serverStats').textContent = `📇 Numbers: ${d.numbersCount} | 👥 Groups: ${d.groupsCount} | 📝 Messages: ${d.messagesCount} | 🕒 ${d.serverTime}`;
+
+    // Sender stats update
+    const s = d.sender;
+    const statBox = $('senderStats');
+    const startBtn = $('startBtn'), stopBtn = $('stopBtn');
+
+    if (s.running) {
+      startBtn.style.display = 'none'; stopBtn.style.display = 'block';
+      const modeLabels = { all: 'Sab', groups: 'Sirf Groups', numbers: 'Sirf Numbers' };
+      statBox.innerHTML = `
+        <div class="lbl">🔴 RUNNING</div>
+        <div class="stat-grid">
+          <div><div class="num">${s.sentCount}</div><div class="lbl">Sent ✅</div></div>
+          <div><div class="num">${s.failedCount}</div><div class="lbl">Failed ❌</div></div>
+        </div>
+        <div class="hint" style="margin-top:6px;">Targets: ${s.targetCount} | Msgs: ${s.messageCount} | Mode: ${modeLabels[s.mode] || s.mode} | Delay: ${s.delaySeconds}s</div>
+        <div class="hint">Abhi: ${s.currentTarget ? esc(s.currentTarget) : '-'}</div>
+        <div class="hint">Msg: ${s.currentMessage ? esc(s.currentMessage).slice(0, 50) : '-'}</div>
+        ${s.lastSentAt ? `<div class="hint">Last sent: ${new Date(s.lastSentAt).toLocaleTimeString()}</div>` : ''}
+        ${s.lastError ? `<div class="hint" style="color:var(--red);">${esc(s.lastError)}</div>` : ''}
+      `;
+    } else {
+      startBtn.style.display = 'block'; stopBtn.style.display = 'none';
+      if (s.stoppedAt) {
+        statBox.innerHTML = `<div class="lbl">⏹️ Stopped</div><div class="hint">Sent: ${s.sentCount} | Failed: ${s.failedCount} | Reason: ${esc(s.stopReason || '')}</div>`;
+      } else {
+        statBox.innerHTML = `<div class="hint">Sender abhi off hai.</div>`;
+      }
+    }
+  } catch (e) { console.error(e); }
+}
+
+// ---------- Pair ----------
+async function requestPairing() {
+  const phone = $('phone').value.trim();
+  const btn = $('pairBtn'), resEl = $('pairResult');
+  resEl.innerHTML = '';
+  if (!/^\d{7,15}$/.test(phone)) { setMsg('pairResult', 'err', 'Valid number daalo.'); return; }
+  btn.disabled = true; btn.textContent = 'Generating...';
+  try {
+    const res = await fetch('/api/pair', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ phone }) });
+    const d = await res.json();
+    if (res.ok) resEl.innerHTML = `<div class="pairing-code">${d.code}</div><div class="hint">WhatsApp → Settings → Linked Devices → Link a Device → "Link with phone number instead"</div>`;
+    else setMsg('pairResult', 'err', d.error);
+  } catch(e) { setMsg('pairResult', 'err', 'Error'); }
+  btn.disabled = false; btn.textContent = 'Generate Pairing Code';
+}
+
+async function resetBot() {
+  const btn = $('resetBtn'); btn.disabled = true; btn.textContent = 'Resetting...';
+  try { await fetch('/api/reset', { method: 'POST' }); } catch(e) { }
+  setTimeout(() => { btn.disabled = false; btn.textContent = 'Reset & Re-pair'; refreshStatus(); }, 1500);
+}
+
+// ---------- Files ----------
+async function loadFiles() {
+  try {
+    const [msg, num, grp] = await Promise.all([
+      fetch('/api/files/messages').then(r => r.json()),
+      fetch('/api/files/numbers').then(r => r.json()),
+      fetch('/api/files/groups').then(r => r.json())
+    ]);
+    $('messagesArea').value = msg.content.join('\n');
+    $('numbersArea').value = num.content.join('\n');
+    $('groupsArea').value = grp.content.join('\n');
+  } catch (e) { console.error(e); }
+}
+
+async function saveFile(type, areaId, msgId) {
+  const content = $(areaId).value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  try {
+    const res = await fetch(`/api/files/${type}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ content }) });
+    const d = await res.json();
+    if (d.success) setMsg(msgId, 'ok', `✅ ${d.count} saved!`);
+    else setMsg(msgId, 'err', d.error);
+    loadFiles();
+  } catch(e) { setMsg(msgId, 'err', 'Error'); }
+}
+
+function uploadFile(type, input, msgId) {
+  if (!input.files.length) { setMsg(msgId, 'err', 'File select karo.'); return; }
+  const fd = new FormData();
+  fd.append('file', input.files[0]);
+  fetch(`/api/upload/${type}`, { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) setMsg(msgId, 'ok', `✅ ${d.message}`);
+      else setMsg(msgId, 'err', d.error);
+      loadFiles();
+    })
+    .catch(e => setMsg(msgId, 'err', 'Upload failed.'));
+  input.value = '';
+}
+
+async function clearFile(type, areaId, msgId) {
+  try {
+    const res = await fetch(`/api/files/${type}/clear`, { method: 'POST' });
+    const d = await res.json();
+    setMsg(msgId, 'ok', `✅ Cleared! ${d.count} left.`);
+    loadFiles();
+  } catch(e) { setMsg(msgId, 'err', 'Error.'); }
+}
+
+// ---------- Sender ----------
+async function startSender() {
+  const mode = $('sendMode').value;
+  const delay = parseInt($('delaySec').value) || 1;
+  try {
+    const res = await fetch('/api/sender/start', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ mode, delaySeconds: delay }) });
+    const d = await res.json();
+    if (d.success) { setMsg('senderStats', 'ok', `🚀 START! Targets: ${d.targets}, Msgs: ${d.messages}`); }
+    else { setMsg('senderStats', 'err', d.error); }
+  } catch(e) { setMsg('senderStats', 'err', 'Error.'); }
+}
+
+async function stopSender() {
+  try {
+    await fetch('/api/sender/stop', { method: 'POST' });
+  } catch(e) { }
+}
+
+// ---------- Groups ----------
+async function loadAvailableGroups() {
+  const box = $('availableGroups');
+  box.innerHTML = '<div class="hint">Loading...</div>';
+  try {
+    const res = await fetch('/api/groups/available');
+    if (!res.ok) { const d = await res.json(); box.innerHTML = `<div class="msg err">${d.error}</div>`; return; }
+    const groups = await res.json();
+    if (!groups.length) { box.innerHTML = '<div class="hint">Bot kisi group mein nahi hai. Pehle WhatsApp par groups se join karo.</div>'; return; }
+
+    // Current groups in file
+    const fileRes = await fetch('/api/files/groups').then(r => r.json());
+    const currentGroups = fileRes.parsed || [];
+
+    box.innerHTML = groups.slice(0, 50).map(g => {
+      const already = currentGroups.includes(g.id);
+      return `<div class="group-item">
+        <div style="flex:1;">
+          <div class="g-name">${esc(g.name)} <span style="color:var(--muted);font-weight:400;">(${g.participants})</span></div>
+          <div class="g-id">${esc(g.id)}</div>
+        </div>
+        ${already ? '<span style="font-size:11px;background:#e9f7ef;color:#1e7e34;padding:3px 8px;border-radius:10px;">Added ✓</span>' : `<button class="small" onclick="addGroup('${esc(g.id)}')">➕ Add</button>`}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="msg err">Error loading groups.</div>';
+  }
+}
+
+async function addGroup(gid) {
+  try {
+    const res = await fetch('/api/groups/add', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ groupId: gid }) });
+    const d = await res.json();
+    loadFiles();
+    loadAvailableGroups();
+  } catch(e) { }
+}
+
+// ---------- Logs ----------
+async function refreshLogs() {
+  try {
+    const res = await fetch('/api/logs');
+    const logs = await res.json();
+    const box = $('logList');
+    if (!logs.length) { box.innerHTML = '<div class="hint">Koi log nahi.</div>'; return; }
+    box.innerHTML = logs.slice(0, 50).map(l => {
+      let b = '';
+      if (l.direction === 'sent') b = `<span class="log-badge sent">SENT → ${esc(l.to)}</span>`;
+      else if (l.direction === 'received') b = `<span class="log-badge received">RECEIVED ← ${esc(l.from)}</span>`;
+      else b = `<span class="log-badge failed">FAILED → ${esc(l.to || '')}</span>`;
+      const extra = l.error ? ` | <span style="color:var(--red);">${esc(l.error)}</span>` : '';
+      return `<div class="log-entry">${b}<div>${esc(l.body)}</div><div class="log-meta">${l.humanTime || ''}${l.via ? ' | ' + esc(l.via) : ''}${extra}</div></div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+// ---------- Init ----------
+loadFiles();
+refreshStatus();
+refreshLogs();
+setInterval(refreshStatus, 1500);
+setInterval(refreshLogs, 2000);
+</script>
+</body>
+  </html>
