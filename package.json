@@ -1,31 +1,20 @@
 {
-  "name": "whatsapp-nonstop-sender",
+  "name": "krix-eshu-bot",
   "version": "1.0.0",
-  "description": "WhatsApp Bulk Message Sender Bot with Web Dashboard, File Upload, Group UID Support & Non-Stop Sender",
-  "main": "index.js",
+  "type": "module",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
+    "start": "node server.js"
   },
-  "keywords": [
-    "whatsapp",
-    "bot",
-    "bulk",
-    "sender",
-    "baileys",
-    "group",
-    "nonstop"
-  ],
-  "author": "Your Name",
-  "license": "MIT",
   "dependencies": {
-    "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/baileys": "6.7.0",
+    "@whiskeysockets/baileys": "^6.7.5",
     "express": "^4.19.2",
-    "multer": "^1.4.5-lts.1",
-    "pino": "^9.2.0"
+    "pino": "^9.0.0",
+    "yt-search": "^2.12.1",
+    "@distube/ytdl-core": "^4.13.5",
+    "multer": "^1.4.5-lts.1"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "20.x"
   }
 }
